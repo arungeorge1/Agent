@@ -1,6 +1,5 @@
 from ollama import chat
 
-# Conversation memory
 messages = []
 
 
@@ -13,25 +12,9 @@ while True:
 
     user_input = input("You: ")
 
-    # Exit condition
     if user_input.lower() in ["exit", "end"]:
         print("Goodbye!")
         break
-
-    # TOOL ROUTING
-    # Very primitive agent logic
-    if any(op in user_input for op in ["+", "-", "*", "/"]):
-
-        try:
-            result = calculator(user_input)
-
-            print("Tool Result:", result)
-
-            continue
-
-        except Exception:
-            print("Invalid math expression")
-            continue
 
     # Store user message
     messages.append(
@@ -41,14 +24,59 @@ while True:
         }
     )
 
-    # Normal LLM chat
+    # SYSTEM PROMPT
+    system_message = {
+        "role": "system",
+        "content": """
+You are an AI assistant.
+
+If the user asks a math question,
+respond ONLY in this format:
+
+CALCULATE: expression
+
+Example:
+CALCULATE: 5 * 8
+
+Do not explain.
+Do not add extra text.
+"""
+    }
+
+    # Send conversation + system prompt
     response = chat(
         model="llama3.2:1b",
-        messages=messages
+        messages=[system_message] + messages
     )
 
     assistant_message = response["message"]
 
-    print("AI:", assistant_message["content"])
+    assistant_content = assistant_message["content"]
 
-    messages.append(assistant_message)
+    # TOOL EXECUTION
+    if assistant_content.startswith("CALCULATE:"):
+
+        expression = assistant_content.replace("CALCULATE:", "").strip()
+
+        try:
+            result = calculator(expression)
+
+            tool_response = f"The answer is {result}"
+
+            print("AI:", tool_response)
+
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": tool_response
+                }
+            )
+
+        except Exception:
+            print("AI: Failed to calculate.")
+
+    else:
+
+        print("AI:", assistant_content)
+
+        messages.append(assistant_message)
