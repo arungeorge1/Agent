@@ -28,6 +28,15 @@ def search_tool(query):
     return results
 
 
+# -------------------------
+# Tool Registry
+# -------------------------
+tools = {
+    "CALCULATE": calculator,
+    "SEARCH": search_tool
+}
+
+
 while True:
 
     user_input = input("You: ")
@@ -55,20 +64,26 @@ Available tools:
 
 1. Calculator
 
-Use only for arithmetic calculations.
+Use ONLY for arithmetic calculations.
 
-Respond EXACTLY in this format:
+IMPORTANT:
+Do NOT solve the calculation yourself.
+Pass the ORIGINAL expression to the calculator.
 
-CALCULATE: expression
+Correct:
+User: What is 55 * 6?
+CALCULATE: 55 * 6
 
-Example:
-CALCULATE: 5 * 8
+Wrong:
+User: What is 55 * 6?
+CALCULATE: 330
 
 
 2. Search
 
 Use Search whenever:
 - current information is needed
+- current date or time is needed
 - the answer may have changed over time
 - the question contains a year
 - the question asks about current leaders
@@ -89,6 +104,12 @@ SEARCH: current Prime Minister of India
 
 If no tool is required,
 answer normally.
+
+Only use these tool names:
+CALCULATE
+SEARCH
+
+Never invent tool names.
 """
     }
 
@@ -101,79 +122,75 @@ answer normally.
     )
 
     assistant_message = response["message"]
-
     assistant_content = assistant_message["content"]
 
     print("\n[MODEL DECISION]")
     print(assistant_content)
     print()
 
-    # =====================================================
-    # CALCULATOR TOOL
-    # =====================================================
-    if assistant_content.startswith("CALCULATE:"):
+    # -------------------------
+    # Generic Tool Parser
+    # -------------------------
+    if ":" in assistant_content:
 
-        expression = assistant_content.replace(
-            "CALCULATE:",
-            ""
-        ).strip()
+        tool_name = assistant_content.split(":", 1)[0].strip()
+        tool_input = assistant_content.split(":", 1)[1].strip()
 
-        try:
+        if tool_name in tools:
 
-            result = calculator(expression)
+            # ==================================
+            # CALCULATOR
+            # ==================================
+            if tool_name == "CALCULATE":
 
-            tool_response = f"The answer is {result}"
+                try:
 
-            print("AI:", tool_response)
+                    result = tools[tool_name](tool_input)
 
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": tool_response
-                }
-            )
+                    tool_response = f"The answer is {result}"
 
-        except Exception as e:
+                    print("AI:", tool_response)
 
-            print("AI: Failed to calculate.")
-            print("ERROR:", e)
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": tool_response
+                        }
+                    )
 
-    # =====================================================
-    # SEARCH TOOL
-    # =====================================================
-    elif assistant_content.startswith("SEARCH:"):
+                except Exception as e:
 
-        query = assistant_content.replace(
-            "SEARCH:",
-            ""
-        ).strip()
+                    print("AI: Failed to calculate.")
+                    print("ERROR:", e)
 
-        print("Searching:", query)
+            # ==================================
+            # SEARCH
+            # ==================================
+            elif tool_name == "SEARCH":
 
-        try:
+                print("Searching:", tool_input)
 
-            results = search_tool(query)
+                try:
 
-            search_context = ""
+                    results = tools[tool_name](tool_input)
 
-            for result in results:
+                    search_context = ""
 
-                search_context += f"""
+                    for result in results:
+
+                        search_context += f"""
 Title: {result['title']}
 Body: {result['body']}
 URL: {result['href']}
 
 """
 
-            # -----------------------------------
-            # Second LLM Call
-            # -----------------------------------
-            final_response = chat(
-                model=MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"""
+                    final_response = chat(
+                        model=MODEL,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": f"""
 Use the search results below
 to answer the user's question.
 
@@ -181,33 +198,34 @@ Search Results:
 
 {search_context}
 """
-                    },
-                    {
-                        "role": "user",
-                        "content": user_input
-                    }
-                ]
-            )
+                            },
+                            {
+                                "role": "user",
+                                "content": user_input
+                            }
+                        ]
+                    )
 
-            final_answer = final_response["message"]["content"]
+                    final_answer = final_response["message"]["content"]
 
-            print("AI:", final_answer)
+                    print("AI:", final_answer)
 
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": final_answer
-                }
-            )
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": final_answer
+                        }
+                    )
 
-        except Exception as e:
+                except Exception as e:
 
-            print("AI: Search failed.")
-            print("ERROR:", e)
+                    print("AI: Search failed.")
+                    print("ERROR:", e)
 
-    # =====================================================
-    # NORMAL CHAT
-    # =====================================================
+        else:
+
+            print(f"AI: Unknown tool '{tool_name}' requested.")
+
     else:
 
         print("AI:", assistant_content)
