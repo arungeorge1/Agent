@@ -1,32 +1,16 @@
-from ollama import chat
-from ddgs import DDGS
+from groq import Groq
+import os
+from dotenv import load_dotenv
+from tools.calculator import calculator
+from tools.search import search_tool
 
-MODEL = "qwen2.5:3b"
+load_dotenv()
+
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+MODEL = "llama-3.1-8b-instant"
 
 messages = []
-
-
-# -------------------------
-# Calculator Tool
-# -------------------------
-def calculator(expression):
-    return eval(expression)
-
-
-# -------------------------
-# Search Tool
-# -------------------------
-def search_tool(query):
-
-    results = list(
-        DDGS().text(
-            query,
-            max_results=5
-        )
-    )
-
-    return results
-
 
 # -------------------------
 # Tool Registry
@@ -37,13 +21,7 @@ tools = {
 }
 
 
-while True:
-
-    user_input = input("You: ")
-
-    if user_input.lower() in ["exit", "end"]:
-        print("Goodbye!")
-        break
+def run_agent(user_input):
 
     messages.append(
         {
@@ -89,6 +67,7 @@ Use Search whenever:
 - the question asks about current leaders
 - the question asks about latest updates
 - the answer requires internet knowledge
+- if llm doesn't know the answer but it seems like something that can be searched
 
 Examples:
 
@@ -101,6 +80,19 @@ SEARCH: latest AI news
 User: Current Prime Minister of India
 SEARCH: current Prime Minister of India
 
+If you decide to use a tool,
+respond ONLY with the tool call.
+
+Do not explain.
+Do not add extra text.
+
+Correct:
+SEARCH: latest AI news
+
+Wrong:
+Here is some information...
+
+SEARCH: latest AI news
 
 If no tool is required,
 answer normally.
@@ -115,18 +107,13 @@ Never invent tool names.
 
     # -------------------------
     # First LLM Call
-    # -------------------------
-    response = chat(
-        model=MODEL,
-        messages=[system_message] + messages
+    
+    response = client.chat.completions.create(
+    model=MODEL,
+    messages=[system_message] + messages
     )
-
-    assistant_message = response["message"]
-    assistant_content = assistant_message["content"]
-
-    print("\n[MODEL DECISION]")
-    print(assistant_content)
-    print()
+    assistant_content = response.choices[0].message.content
+    assistant_message = {"role": "assistant", "content": assistant_content}
 
     # -------------------------
     # Generic Tool Parser
@@ -135,6 +122,9 @@ Never invent tool names.
 
         tool_name = assistant_content.split(":", 1)[0].strip()
         tool_input = assistant_content.split(":", 1)[1].strip()
+
+        print("\nMODEL DECISION:")
+        print(repr(assistant_content))
 
         if tool_name in tools:
 
@@ -149,26 +139,33 @@ Never invent tool names.
 
                     tool_response = f"The answer is {result}"
 
-                    print("AI:", tool_response)
-
                     messages.append(
                         {
                             "role": "assistant",
                             "content": tool_response
                         }
                     )
+                    return tool_response
 
                 except Exception as e:
 
-                    print("AI: Failed to calculate.")
-                    print("ERROR:", e)
+                    error_message = (
+                        f"Failed to calculate: {e}"
+                    )
+
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": error_message
+                        }
+                    )
+
+                    return error_message
 
             # ==================================
             # SEARCH
             # ==================================
             elif tool_name == "SEARCH":
-
-                print("Searching:", tool_input)
 
                 try:
 
@@ -179,13 +176,13 @@ Never invent tool names.
                     for result in results:
 
                         search_context += f"""
-Title: {result['title']}
-Body: {result['body']}
-URL: {result['href']}
+                        Title: {result['title']}
+                        Body: {result['body']}
+                        URL: {result['href']}
 
-"""
+                        """
 
-                    final_response = chat(
+                    final_response = client.chat.completions.create(
                         model=MODEL,
                         messages=[
                             {
@@ -206,10 +203,7 @@ Search Results:
                         ]
                     )
 
-                    final_answer = final_response["message"]["content"]
-
-                    print("AI:", final_answer)
-
+                    final_answer = final_response.choices[0].message.content
                     messages.append(
                         {
                             "role": "assistant",
@@ -217,17 +211,25 @@ Search Results:
                         }
                     )
 
+                    return final_answer
+
                 except Exception as e:
 
-                    print("AI: Search failed.")
-                    print("ERROR:", e)
+                    error_message = (
+                        f"Search failed: {e}"
+                    )
 
-        else:
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": error_message
+                        }
+                    )
 
-            print(f"AI: Unknown tool '{tool_name}' requested.")
+                    return error_message
 
     else:
 
-        print("AI:", assistant_content)
-
         messages.append(assistant_message)
+
+        return assistant_content
