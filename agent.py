@@ -50,11 +50,11 @@ Pass the ORIGINAL expression to the calculator.
 
 Correct:
 User: What is 55 * 6?
-CALCULATE: 55 * 6
+CALCULATE= 55 * 6
 
 Wrong:
 User: What is 55 * 6?
-CALCULATE: 330
+CALCULATE= 330
 
 
 2. Search
@@ -72,27 +72,33 @@ Use Search whenever:
 Examples:
 
 User: Who is the Chief Minister of Kerala in 2026?
-SEARCH: Chief Minister of Kerala 2026
+SEARCH= Chief Minister of Kerala 2026
 
 User: Latest AI news
-SEARCH: latest AI news
+SEARCH= latest AI news
 
 User: Current Prime Minister of India
-SEARCH: current Prime Minister of India
+SEARCH= current Prime Minister of India
 
 If you decide to use a tool,
 respond ONLY with the tool call.
 
 Do not explain.
 Do not add extra text.
+Do not add data which llm had returned if a tool needs to be used.
 
 Correct:
-SEARCH: latest AI news
+SEARCH= latest AI news
 
 Wrong:
-Here is some information...
+Here is some information...SEARCH= latest AI news
 
-SEARCH: latest AI news
+Do not try to use the same tool multiple times in a single user input.
+
+Correct: SEARCH= kochi vs thodupuzha tourism
+
+Wrong:
+SEARCH= kochi vs thodupuzha tourism\nSEARCH= kochi vs thodupuzha economy\nSEARCH= population of kochi and thodupuzha
 
 If no tool is required,
 answer normally.
@@ -118,10 +124,10 @@ Never invent tool names.
     # -------------------------
     # Generic Tool Parser
     # -------------------------
-    if ":" in assistant_content:
+    if "=" in assistant_content:
 
-        tool_name = assistant_content.split(":", 1)[0].strip()
-        tool_input = assistant_content.split(":", 1)[1].strip()
+        tool_name = assistant_content.split("=", 1)[0].strip()
+        tool_input = assistant_content.split("=", 1)[1].strip()
 
         print("\nMODEL DECISION:")
         print(repr(assistant_content))
