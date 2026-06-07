@@ -1,6 +1,10 @@
 import streamlit as st
+import logging
+logging.getLogger("streamlit.watcher.local_sources_watcher").setLevel(logging.ERROR)
 from agent import run_agent
 from tools.pdf_reader import read_pdf
+from tools.chunker import chunk_text
+from tools.embeddings import create_embeddings
 
 with st.sidebar:
 
@@ -9,11 +13,12 @@ with st.sidebar:
     if st.button("Clear Chat"):
 
         st.session_state.messages = []
-        if "pdf_summary" in st.session_state:
-            del st.session_state.pdf_summary
 
         if "pdf_text" in st.session_state:
             del st.session_state.pdf_text
+
+        if "pdf_summary" in st.session_state:
+            del st.session_state.pdf_summary
 
         st.rerun()
 
@@ -24,6 +29,12 @@ with st.sidebar:
         st.success(f"Uploaded: {uploaded_file.name}")
         pdf_text = read_pdf(uploaded_file)
         st.session_state.pdf_text = pdf_text
+        chunks = chunk_text(pdf_text)
+
+        # print(f"Total Chunks: {len(chunks)}")
+        embeddings = create_embeddings(chunks)
+
+        print(embeddings.shape)
    
 
 st.title("AI ChatBot")
