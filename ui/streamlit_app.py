@@ -53,19 +53,19 @@ for message in st.session_state.messages:
 
         st.markdown(message["content"])
 
-if uploaded_file and "pdf_summary" not in st.session_state:
-    summary = run_agent(
-        f"Summarize this document:\n\n{pdf_text}"
-    )
-    with st.chat_message("assistant"):
-         st.markdown(summary)
+# if uploaded_file and "pdf_summary" not in st.session_state:
+#     summary = run_agent(
+#         f"Summarize this document:\n\n{pdf_text}"
+#     )
+#     with st.chat_message("assistant"):
+#          st.markdown(summary)
 
-    st.session_state.pdf_summary = summary
+#     st.session_state.pdf_summary = summary
 
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": summary
-    })
+#     st.session_state.messages.append({
+#         "role": "assistant",
+#         "content": summary
+#     })
 
 # if "pdf_summary" in st.session_state:
 #     st.markdown(st.session_state.pdf_summary)
