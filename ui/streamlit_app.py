@@ -5,6 +5,7 @@ from agent import run_agent
 from tools.pdf_reader import read_pdf
 from tools.chunker import chunk_text
 from tools.embeddings import create_embeddings
+from tools.vector_store import create_index, search_index
 
 with st.sidebar:
 
@@ -24,7 +25,7 @@ with st.sidebar:
 
     uploaded_file = st.file_uploader("Upload PDF",type=["pdf"])
 
-    if uploaded_file:
+    if uploaded_file and "index" not in st.session_state:
 
         st.success(f"Uploaded: {uploaded_file.name}")
         pdf_text = read_pdf(uploaded_file)
@@ -34,7 +35,11 @@ with st.sidebar:
         # print(f"Total Chunks: {len(chunks)}")
         embeddings = create_embeddings(chunks)
 
-        print(embeddings.shape)
+        # print(embeddings.shape)
+        index = create_index(embeddings)
+
+        st.session_state.index = index
+        st.session_state.chunks = chunks
    
 
 st.title("AI ChatBot")
@@ -81,11 +86,26 @@ if prompt:
 
     if "pdf_text" in st.session_state:
 
+        question_embedding = create_embeddings(
+        [prompt]
+    )
+
+        retrieved_chunks = search_index(
+        question_embedding,
+        st.session_state.index,
+        st.session_state.chunks
+        )
+
+        context = "\n".join(retrieved_chunks)
+
         response = run_agent(
             f"""
-Document:
 
-{st.session_state.pdf_text}
+Use the context below to answer the question.
+
+Context:
+
+{context}
 
 Question:
 
